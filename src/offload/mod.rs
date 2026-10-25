@@ -56,6 +56,16 @@ pub fn kind_of_login(lr: &base::message_proto::LoginRequest) -> &'static str {
     }
 }
 
+/// Offload's defaults for settings the user has not changed: remote terminals keep running
+/// across disconnects, so a long job survives a dropped connection and can be picked up again.
+pub fn apply_defaults() {
+    hbb_common::config::DEFAULT_DISPLAY_SETTINGS
+        .write()
+        .unwrap()
+        .entry(base::config::keys::OPTION_TERMINAL_PERSISTENT.to_owned())
+        .or_insert_with(|| "Y".to_owned());
+}
+
 pub fn my_name() -> String {
     let name = crate::common::hostname();
     if name.trim().is_empty() {
