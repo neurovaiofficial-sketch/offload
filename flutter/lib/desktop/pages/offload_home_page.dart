@@ -21,10 +21,17 @@ class OffloadHome extends StatefulWidget {
 }
 
 class _OffloadHomeState extends State<OffloadHome> {
+  bool _keyConfigured = true;
+
   @override
   void initState() {
     super.initState();
     offloadModel.attach();
+    offloadCall('info').then((r) {
+      if (mounted && r.data['key_configured'] == false) {
+        setState(() => _keyConfigured = false);
+      }
+    });
   }
 
   @override
@@ -54,6 +61,18 @@ class _OffloadHomeState extends State<OffloadHome> {
                             letterSpacing: 4,
                             color: Theme.of(context).textTheme.titleLarge?.color)),
                     const SizedBox(height: 20),
+                    if (!_keyConfigured)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Text(
+                            'This copy of Offload was built without a server, so it cannot connect to other computers. '
+                            'Install a build made for your Offload server.',
+                            style: TextStyle(color: Colors.red)),
+                      ),
                     if (!model.loaded)
                       const Padding(
                         padding: EdgeInsets.all(40),
