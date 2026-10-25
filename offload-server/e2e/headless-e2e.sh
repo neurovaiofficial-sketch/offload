@@ -30,6 +30,7 @@ field() { python3 -c 'import json,sys; d=json.loads(sys.argv[1]);
 for k in sys.argv[2].split("."):
     d = d.get(k, {}) if isinstance(d, dict) else {}
 print(d if not isinstance(d, (dict, list)) else json.dumps(d))' "$1" "$2"; }
+has_device() { python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if any(x.get("id")==sys.argv[2] for x in d.get("devices",[])) else 1)' "$1" "$2"; }
 check() {
   local name="$1" cond="$2" detail="${3:-}"
   if [[ "$cond" == 1 ]]; then PASS=$((PASS+1)); RESULTS+=("PASS  $name"); echo "PASS  $name";
@@ -42,9 +43,13 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
+# Both accounts share this machine's network card, from which device ids are derived, so each
+# simulated computer is given its own id up front, as two real computers would have.
 for u in offa offb; do
   rm -rf "/home/$u/.config/Offload" "/tmp/rt-$u"
-  mkdir -p "/tmp/rt-$u" && chown "$u" "/tmp/rt-$u" && chmod 700 "/tmp/rt-$u"
+  mkdir -p "/tmp/rt-$u" "/home/$u/.config/Offload" && chmod 700 "/tmp/rt-$u"
+  echo "id = '$(shuf -i 700000000-799999999 -n 1)'" > "/home/$u/.config/Offload/Offload.toml"
+  chown -R "$u" "/tmp/rt-$u" "/home/$u/.config"
   as "$u" --server >"/tmp/offload-$u.log" 2>&1 &
 done
 
@@ -55,7 +60,7 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 echo "A=$A_ID B=$B_ID"
-check "both devices have ids" "$([[ -n $A_ID && -n $B_ID ]] && echo 1 || echo 0)"
+check "both devices have distinct ids" "$([[ -n $A_ID && -n $B_ID && $A_ID != "$B_ID" ]] && echo 1 || echo 0)"
 
 pair_code() {
   local r
@@ -79,8 +84,8 @@ check "A approves" "$([[ $(field "$D" ok) == True ]] && echo 1 || echo 0)" "$D"
 wait $LINK_PID
 L=$(cat /tmp/link-b.json)
 check "B reports linked with A" "$([[ $(field "$L" status.state) == linked && $(field "$L" status.id) == "$A_ID" ]] && echo 1 || echo 0)" "$L"
-check "A trusts B" "$(oc offa devices | grep -q "\"$B_ID\"" && echo 1 || echo 0)"
-check "B trusts A" "$(oc offb devices | grep -q "\"$A_ID\"" && echo 1 || echo 0)"
+check "A trusts B" "$(has_device "$(oc offa devices)" "$B_ID" && echo 1 || echo 0)"
+check "B trusts A" "$(has_device "$(oc offb devices)" "$A_ID" && echo 1 || echo 0)"
 R=$(oc offb link "{\"code\":\"$CODE\"}")
 check "a used code cannot be used again" "$([[ $(field "$R" status.state) == failed ]] && echo 1 || echo 0)" "$R"
 
