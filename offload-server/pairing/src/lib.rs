@@ -268,7 +268,10 @@ pub fn router(dir: Shared, public_key: String) -> Router {
         .route("/v1/slots", post(create_slot))
         .route("/v1/slots/:slot", get(lookup_slot).delete(delete_slot))
         .layer(DefaultBodyLimit::max(1024))
-        .layer(tower_http::timeout::TimeoutLayer::new(Duration::from_secs(10)))
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(10),
+        ))
         .with_state(AppState { dir, public_key })
 }
 
