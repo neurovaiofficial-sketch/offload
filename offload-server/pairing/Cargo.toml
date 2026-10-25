@@ -1,0 +1,26 @@
+[package]
+name = "offload-pairing"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Offload pairing directory: maps one-time pairing-code slots to device ids, signed with the rendezvous server key"
+publish = false
+
+[dependencies]
+offload_core = { path = "../../libs/offload_core" }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync"] }
+tower-http = { version = "0.6", features = ["timeout", "limit"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

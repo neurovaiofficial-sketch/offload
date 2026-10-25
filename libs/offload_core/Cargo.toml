@@ -1,0 +1,16 @@
+[package]
+name = "offload_core"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Offload device pairing, trust store and device-signature authentication"
+publish = false
+
+[dependencies]
+sodiumoxide = "0.2"
+base64 = "0.22"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+tempfile = "3"
