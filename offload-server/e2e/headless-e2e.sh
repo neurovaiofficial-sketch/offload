@@ -24,7 +24,18 @@ for u in offa offb; do
   id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
 done
 
-as() { local u="$1"; shift; sudo -u "$u" -H env HOME="/home/$u" XDG_RUNTIME_DIR="/tmp/rt-$u" "$WORK/offload" "$@"; }
+# With Xvfb installed, computer A gets an off-screen X display so a real remote desktop session
+# (capture, encode, stream) can be tested too.
+DISPLAY_A=""
+if command -v Xvfb >/dev/null; then
+  pkill -f "Xvfb :98" 2>/dev/null
+  Xvfb :98 -ac -screen 0 1280x720x24 >/tmp/xvfb-e2e.log 2>&1 &
+  XVFB_PID=$!
+  sleep 2
+  DISPLAY_A=":98"
+fi
+as() { local u="$1"; shift; local d=""; [[ $u == offa && -n $DISPLAY_A ]] && d="DISPLAY=$DISPLAY_A XDG_SESSION_TYPE=x11"
+  sudo -u "$u" -H env HOME="/home/$u" XDG_RUNTIME_DIR="/tmp/rt-$u" $d "$WORK/offload" "$@"; }
 oc() { local u="$1"; shift; as "$u" --offload "$@" 2>/dev/null | tail -1; }
 field() { python3 -c 'import json,sys; d=json.loads(sys.argv[1]);
 for k in sys.argv[2].split("."):
@@ -40,6 +51,7 @@ check() {
 cleanup() {
   pkill -u offa -f "$WORK/offload" 2>/dev/null
   pkill -u offb -f "$WORK/offload" 2>/dev/null
+  [[ -n "${XVFB_PID:-}" ]] && kill "$XVFB_PID" 2>/dev/null
 }
 trap cleanup EXIT
 cleanup
@@ -103,6 +115,13 @@ echo "     transport=$(field "$P" transport) direct=$(field "$P" direct) peer=$(
 echo "== TEST 14 (Linux stand-in): run a computation on A from B"
 P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"run\",\"command\":\"echo result=\$((6*7)) on \$(hostname)\",\"wait\":30}")
 check "command runs on A and its output comes back" "$(field "$P" output | grep -q "result=42" && echo 1 || echo 0)" "$(field "$P" error)"
+
+if [[ -n $DISPLAY_A ]]; then
+  echo "== TEST 6 (Linux stand-in): remote desktop session streams the screen"
+  P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"desktop\",\"wait\":40}")
+  check "B receives A's screen as encoded video" "$(field "$P" output | grep -q "first video frame" && echo 1 || echo 0)" "$P"
+  echo "     $(field "$P" output) displays=$(field "$P" peer.displays)"
+fi
 
 echo "== TEST 11: forced relay"
 # On one host both ends reach the relay within the same microsecond, which hbbr 1.1.16 does
