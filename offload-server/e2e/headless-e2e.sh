@@ -105,7 +105,13 @@ P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"run\",\"command\":\"echo result=
 check "command runs on A and its output comes back" "$(field "$P" output | grep -q "result=42" && echo 1 || echo 0)" "$(field "$P" error)"
 
 echo "== TEST 11: forced relay"
+# On one host both ends reach the relay within the same microsecond, which hbbr 1.1.16 does
+# not pair (its lookup and insert are not atomic). Real networks separate the two arrivals by
+# at least one round trip; a small artificial delay recreates that.
+NETEM=0
+if command -v tc >/dev/null && tc qdisc add dev lo root netem delay 10ms 2>/dev/null; then NETEM=1; fi
 P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":30,\"relay\":true}")
+[[ $NETEM == 1 ]] && tc qdisc del dev lo root
 check "session works through the relay" "$([[ $(field "$P" ok) == True && $(field "$P" direct) == False ]] && echo 1 || echo 0)" "$P"
 echo "     transport=$(field "$P" transport)"
 

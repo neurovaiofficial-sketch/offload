@@ -148,10 +148,12 @@ pub async fn handle(req: &str) -> String {
 }
 
 fn timeout_ms(req: &Value) -> u64 {
-    if req.get("op").and_then(Value::as_str) == Some("pair_start") {
-        20_000
-    } else {
-        3_000
+    match req.get("op").and_then(Value::as_str) {
+        // Waits for the pairing directory over the internet.
+        Some("pair_start") => 20_000,
+        Some("devices") | Some("pair_status") => 3_000,
+        // Changes are flushed to disk before the service answers.
+        _ => 10_000,
     }
 }
 
