@@ -46,9 +46,9 @@ cleanup
 # Both accounts share this machine's network card, from which device ids are derived, so each
 # simulated computer is given its own id up front, as two real computers would have.
 for u in offa offb; do
-  rm -rf "/home/$u/.config/Offload" "/tmp/rt-$u"
-  mkdir -p "/tmp/rt-$u" "/home/$u/.config/Offload" && chmod 700 "/tmp/rt-$u"
-  echo "id = '$(shuf -i 700000000-799999999 -n 1)'" > "/home/$u/.config/Offload/Offload.toml"
+  rm -rf "/home/$u/.config/offload" "/home/$u/.config/Offload" "/tmp/rt-$u"
+  mkdir -p "/tmp/rt-$u" "/home/$u/.config/offload" && chmod 700 "/tmp/rt-$u"
+  echo "id = '$(shuf -i 700000000-799999999 -n 1)'" > "/home/$u/.config/offload/Offload.toml"
   chown -R "$u" "/tmp/rt-$u" "/home/$u/.config"
   as "$u" --server >"/tmp/offload-$u.log" 2>&1 &
 done
