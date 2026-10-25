@@ -11,11 +11,18 @@
 #   sudo ./headless-e2e.sh /path/to/offload-binary
 set -uo pipefail
 
-BIN="${1:?usage: sudo $0 /path/to/offload-binary}"
+BIN="${1:?usage: sudo $0 /path/to/offload-binary-or-linux-app-bundle}"
 [[ $EUID -eq 0 ]] || { echo "run as root"; exit 2; }
 WORK=/opt/offload-e2e
 mkdir -p "$WORK"
-install -m 0755 "$BIN" "$WORK/offload"
+if [[ -d "$BIN" ]]; then
+  # A Flutter app bundle: its session window (connection manager) can then run on computer A,
+  # which desktop and file sessions need.
+  rm -rf "$WORK/app" && cp -r "$BIN" "$WORK/app" && chmod -R a+rX "$WORK/app"
+  ln -sf "$WORK/app/rustdesk" "$WORK/offload"
+else
+  install -m 0755 "$BIN" "$WORK/offload"
+fi
 PASS=0
 FAIL=0
 RESULTS=()
@@ -49,8 +56,8 @@ check() {
 }
 
 cleanup() {
-  pkill -u offa -f "$WORK/offload" 2>/dev/null
-  pkill -u offb -f "$WORK/offload" 2>/dev/null
+  pkill -u offa -f "$WORK/" 2>/dev/null
+  pkill -u offb -f "$WORK/" 2>/dev/null
   [[ -n "${XVFB_PID:-}" ]] && kill "$XVFB_PID" 2>/dev/null
 }
 trap cleanup EXIT
