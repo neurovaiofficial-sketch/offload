@@ -41,4 +41,6 @@ tests 10–11 the two on different internet connections (e.g. the Mac on a phone
   server: pairing, approval, single use, attended refusal, unattended login, a remote command,
   forced relay, reconnect, reverse direction, wrong-code lockout, revocation, remove-all.
   It covers tests 3, 4, 5, 9, 11, 12, 13 and a Linux stand-in for 7 and 14. It does not
-  replace the Windows/macOS runs above.
+  replace the Windows/macOS runs above. Pass the Linux app bundle directory instead of the
+  binary and set `E2E_DESKTOP=1` on a Linux machine with a graphical login to add a remote
+  desktop streaming check.

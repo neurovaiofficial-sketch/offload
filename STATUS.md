@@ -36,7 +36,9 @@ same code. See *Blockers*.
 | `cargo check`, default and `flutter` features; release build; `flutter build linux` | WSL | pass |
 | Server deployment `deploy.sh` | WSL, Docker 29.1 | deployed; health checks passed |
 | Headless e2e `offload-server/e2e/headless-e2e.sh` | WSL, one host, two Linux accounts, real server | **20 passed, 0 failed** (after the security fixes) — `docs/test-results/2026-10-25-headless-e2e.log` |
+| Headless e2e against the Linux Flutter app bundle | WSL | same 20 checks passed |
 | GUI pairing (Linux app shows code → second computer links → prompt → approve → listed) | WSL, Xvfb | worked; screenshots `docs/test-results/*.png` |
+| Remote desktop video (probe `desktop` mode, `E2E_DESKTOP=1`) | WSL, Xvfb | **not achieved**: the session window (connection manager) that desktop and file sessions need would not start without a graphical login session. Untested until run on real desktops. |
 | Test plan 1–14 on Windows 11 + Apple Silicon | — | **not run** |
 
 ### Test plan (`docs/OFFLOAD-TEST-PLAN.md`)
