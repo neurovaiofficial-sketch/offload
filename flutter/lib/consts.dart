@@ -234,6 +234,10 @@ const String kUrlActionClose = "close";
 
 const String kTabLabelHomePage = "Home";
 const String kTabLabelSettingPage = "Settings";
+const String kTabLabelOffloadSettingPage = "Offload settings";
+
+/// Offload's simplified screens replace RustDesk's home and settings pages.
+const bool kOffload = true;
 
 const String kWindowPrefix = "wm_";
 const int kWindowMainId = 0;

@@ -2904,6 +2904,9 @@ pub struct LoginConfigHandler {
     pub enable_trusted_devices: bool,
     pub record_state: bool,
     pub record_permission: bool,
+    /// The peer key the channel was secured with; Offload compares it with the pinned key.
+    pub(crate) offload_peer_pk: Option<Vec<u8>>,
+    pub(crate) offload_auth: Option<OffloadAuth>,
 }
 
 impl Deref for LoginConfigHandler {
@@ -3789,7 +3792,7 @@ impl LoginConfigHandler {
     }
 
     /// Create a [`Message`] for login.
-    fn create_login_msg(
+    pub(crate) fn create_login_msg(
         &self,
         os_username: String,
         os_password: String,
@@ -3881,6 +3884,7 @@ impl LoginConfigHandler {
             os_login,
             hwid,
             avatar,
+            offload_auth: self.offload_auth.clone().into(),
             ..Default::default()
         };
         match self.conn_type {
@@ -4676,6 +4680,9 @@ pub async fn handle_hash(
             allow_err!(peer.send(&msg).await);
             return false;
         }
+    }
+    if crate::offload::ENFORCED {
+        return crate::offload::client::handle_hash(lc, hash, interface, peer).await;
     }
     // last password
     let mut password = lc.read().unwrap().password.clone();

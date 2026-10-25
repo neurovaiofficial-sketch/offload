@@ -48,6 +48,8 @@ mod lang;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod port_forward;
 mod port_forward_mux;
+/// cbindgen:ignore
+pub mod offload;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod tray;

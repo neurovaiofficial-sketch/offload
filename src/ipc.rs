@@ -368,6 +368,8 @@ pub enum Data {
     FS(FS),
     Test,
     SyncConfig(Option<Box<(Config, Config2)>>),
+    /// Offload pairing and trusted-device requests and their replies, as JSON.
+    Offload(String),
     #[cfg(target_os = "windows")]
     ClipboardFile(ClipboardFile),
     ClipboardFileEnabled(bool),
@@ -1041,6 +1043,10 @@ async fn handle(data: Data, stream: &mut Connection) {
                 allow_err!(stream.send(&Data::Options(None)).await);
             }
         },
+        Data::Offload(req) => {
+            let resp = crate::offload::ipc::handle(&req).await;
+            allow_err!(stream.send(&Data::Offload(resp)).await);
+        }
         Data::NatType(_) => {
             let t = Config::get_nat_type();
             allow_err!(stream.send(&Data::NatType(Some(t))).await);

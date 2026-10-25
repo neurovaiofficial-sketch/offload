@@ -3,6 +3,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
+import 'package:flutter_hbb/desktop/pages/offload_settings_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -20,6 +21,10 @@ class DesktopTabPage extends StatefulWidget {
 
   static void onAddSetting(
       {SettingsTabKey initialPage = SettingsTabKey.general}) {
+    if (kOffload && initialPage == SettingsTabKey.general) {
+      onAddOffloadSetting();
+      return;
+    }
     try {
       DesktopTabController tabController = Get.find<DesktopTabController>();
       tabController.add(TabInfo(
@@ -34,6 +39,39 @@ class DesktopTabPage extends StatefulWidget {
     } catch (e) {
       debugPrintStack(label: '$e');
     }
+  }
+}
+
+void onAddOffloadSetting() {
+  try {
+    DesktopTabController tabController = Get.find<DesktopTabController>();
+    tabController.add(TabInfo(
+        key: kTabLabelOffloadSettingPage,
+        label: kTabLabelSettingPage,
+        selectedIcon: Icons.settings,
+        unselectedIcon: Icons.settings_outlined,
+        page: const OffloadSettingsPage(
+            key: ValueKey(kTabLabelOffloadSettingPage))));
+  } catch (e) {
+    debugPrintStack(label: '$e');
+  }
+}
+
+/// RustDesk's full settings, reached from Offload settings > Advanced.
+void onAddAdvancedSetting() {
+  try {
+    DesktopTabController tabController = Get.find<DesktopTabController>();
+    tabController.add(TabInfo(
+        key: kTabLabelSettingPage,
+        label: 'Advanced',
+        selectedIcon: Icons.build_sharp,
+        unselectedIcon: Icons.build_outlined,
+        page: DesktopSettingPage(
+          key: const ValueKey(kTabLabelSettingPage),
+          initialTabkey: SettingsTabKey.general,
+        )));
+  } catch (e) {
+    debugPrintStack(label: '$e');
   }
 }
 

@@ -274,6 +274,15 @@ class TerminalModel with ChangeNotifier {
     }
   }
 
+  // Offload's Remote Computing panel leaves one command to type once the terminal opens.
+  void _offloadRunStartupCommand() {
+    final key = 'offload-terminal-command-$id';
+    final command = bind.mainGetLocalOption(key: key);
+    if (command.isEmpty) return;
+    bind.mainSetLocalOption(key: key, value: '');
+    _sendInputPayload('$command\r');
+  }
+
   Future<void> sendVirtualKey(String data) async {
     return _handleInput(data);
   }
@@ -428,6 +437,7 @@ class TerminalModel with ChangeNotifier {
 
     if (success) {
       _terminalOpened = true;
+      _offloadRunStartupCommand();
 
       // On reconnect, the server may replay recent output. That replay can include
       // terminal queries like DSR/DA; xterm answers them through onOutput as

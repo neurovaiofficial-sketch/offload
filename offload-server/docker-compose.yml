@@ -1,0 +1,50 @@
+# Offload server: rendezvous (hbbs), relay (hbbr) and the pairing directory.
+#
+# Host networking lets hbbs see each client's real public address, which hole punching
+# (direct peer-to-peer connections) depends on. Ports used on the host:
+#   TCP 21115-21117, UDP 21116  rendezvous / NAT test / relay
+#   TCP 21118-21119             WebSocket rendezvous / relay (optional)
+#   TCP 21120                   pairing directory
+#
+# The rendezvous key pair is created in ./data on first start. Its public half
+# (./data/id_ed25519.pub) is built into the Offload apps as OFFLOAD_RS_PUB_KEY; keep
+# ./data/id_ed25519 secret and backed up — losing it means rebuilding and re-pairing.
+
+name: offload
+
+services:
+  hbbs:
+    image: rustdesk/rustdesk-server:1.1.16@sha256:8ecdab65deb7c84652a626380e31d11a8f1fbafd97916d57f95c20628f943c00
+    # -k _ : only clients built with this server's public key may register and connect.
+    command: hbbs -r ${OFFLOAD_PUBLIC_HOST:?set OFFLOAD_PUBLIC_HOST in .env}:21117 -k _
+    network_mode: host
+    volumes:
+      - ./data:/root
+    restart: unless-stopped
+    depends_on:
+      - hbbr
+
+  hbbr:
+    image: rustdesk/rustdesk-server:1.1.16@sha256:8ecdab65deb7c84652a626380e31d11a8f1fbafd97916d57f95c20628f943c00
+    command: hbbr -k _
+    network_mode: host
+    volumes:
+      - ./data:/root
+    restart: unless-stopped
+
+  pairing:
+    build: ./pairing
+    image: offload-pairing:local
+    network_mode: host
+    environment:
+      OFFLOAD_KEY_FILE: /data/id_ed25519
+      OFFLOAD_PAIRING_LISTEN: 0.0.0.0:21120
+      RUST_LOG: info
+    volumes:
+      - ./data:/data:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    depends_on:
+      - hbbs

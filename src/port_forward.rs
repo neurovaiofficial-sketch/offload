@@ -176,6 +176,8 @@ async fn connect_and_login(
     };
     let ((mut stream, direct, _pk, _kcp, _stream_type), (feedback, rendezvous_server)) =
         Client::start(id, key, token, conn_type, interface.clone()).await?;
+    interface.get_lch().write().unwrap().offload_peer_pk =
+        if stream.is_secured() { _pk } else { None };
     interface.update_direct(Some(direct));
     if !stream.is_secured() && !crate::common::is_direct_ip_access(id) {
         if !confirm_insecure_connection(&interface, ui_receiver).await {
@@ -417,6 +419,8 @@ async fn connect_and_login_mux(
     };
     let ((mut stream, direct, _pk, _kcp, _stream_type), (feedback, rendezvous_server)) =
         Client::start(id, key, token, conn_type, interface.clone()).await?;
+    interface.get_lch().write().unwrap().offload_peer_pk =
+        if stream.is_secured() { _pk } else { None };
     interface.update_direct(Some(direct));
     if !stream.is_secured() && !crate::common::is_direct_ip_access(id) {
         if !confirm_insecure_connection(&interface, ui_receiver).await {

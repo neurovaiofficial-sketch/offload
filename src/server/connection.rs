@@ -73,6 +73,10 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 
 #[cfg(windows)]
 use crate::virtual_display_manager;
+
+#[path = "offload_conn.rs"]
+mod offload_conn;
+pub use offload_conn::{offload_disconnect, offload_has_sessions};
 pub type Sender = mpsc::UnboundedSender<(Instant, Arc<Message>)>;
 
 const FAILURE_IDX_ID_WHITELIST: usize = 2;
@@ -1145,6 +1149,11 @@ impl Connection {
                 },
                 Some(data) = rx_from_authed.recv() => {
                     match data {
+                        ipc::Data::Close => {
+                            conn.send_close_reason_no_retry("Disconnected by the owner of this computer").await;
+                            conn.on_close("Disconnected by the owner", true).await;
+                            break;
+                        }
                         #[cfg(all(target_os = "windows", feature = "flutter"))]
                         ipc::Data::PrinterData(data) => {
                             if Self::permission(keys::OPTION_ENABLE_REMOTE_PRINTER, &conn.control_permissions) {
@@ -2860,6 +2869,9 @@ impl Connection {
         }
         // After handling CloseReason messages, proceed to process other message types
         if let Some(message::Union::LoginRequest(lr)) = msg.union {
+            if let Some(keep_alive) = self.offload_pair_hook(&lr).await {
+                return keep_alive;
+            }
             if !self.check_login_scope(&lr).await {
                 return false;
             }
@@ -2965,6 +2977,10 @@ impl Connection {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if !should_use_terminal_os_login_scope(self.terminal, &lr.os_login.username) {
                 self.try_start_cm_ipc();
+            }
+
+            if let Some(keep_alive) = self.offload_login_hook(&lr).await {
+                return keep_alive;
             }
 
             // https://github.com/rustdesk/rustdesk-server-pro/discussions/646

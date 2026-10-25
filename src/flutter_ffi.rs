@@ -2516,6 +2516,11 @@ pub fn is_custom_client() -> SyncReturn<bool> {
     SyncReturn(crate::common::is_custom_client())
 }
 
+/// Offload pairing and trusted-device operations; JSON in, JSON out.
+pub fn main_offload_call(method: String, args: String) -> String {
+    crate::offload::api::call(&method, &args)
+}
+
 pub fn is_disable_settings() -> SyncReturn<bool> {
     SyncReturn(config::is_disable_settings())
 }

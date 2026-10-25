@@ -1,0 +1,193 @@
+//! Requests from the UI process to the process that accepts connections.
+//!
+//! On an installed system the service owns the trust store and the pending pairing code, so
+//! the UI asks it over the existing local IPC channel (which RustDesk already restricts to the
+//! app's own processes). When no service is reachable, store operations run in-process, but
+//! a code can only be shown by a process that can accept the connection it invites.
+
+use super::{server, store, MSG_UNATTENDED_LOCAL_ONLY};
+use crate::ipc::{self as rd_ipc, Data};
+use hbb_common::{config::Config, log};
+use offload_core::{TrustStore, TrustedDevice};
+use serde::Deserialize;
+use serde_json::{json, Value};
+
+#[derive(Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+enum Request {
+    Devices,
+    PairStart,
+    PairStatus,
+    PairCancel,
+    PairDecide { id: String, approve: bool },
+    DeviceAdd { device: TrustedDevice },
+    DeviceRemove { id: String },
+    DeviceRename { id: String, name: String },
+    DevicesClear,
+    UnattendedSet { on: bool },
+    Disconnect { id: Option<String> },
+}
+
+fn ok(v: Value) -> Value {
+    let mut v = v;
+    if let Some(m) = v.as_object_mut() {
+        m.insert("ok".into(), true.into());
+    }
+    v
+}
+
+fn err(msg: impl ToString) -> Value {
+    json!({ "ok": false, "error": msg.to_string() })
+}
+
+fn devices_json(s: &TrustStore) -> Value {
+    json!({ "unattended": s.unattended, "devices": s.devices, "my_id": Config::get_id() })
+}
+
+fn has_remote_sessions() -> bool {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    return crate::server::offload_has_sessions();
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return false;
+}
+
+fn disconnect(id: Option<&str>) -> usize {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    return crate::server::offload_disconnect(id);
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return {
+        let _ = id;
+        0
+    };
+}
+
+/// Serves one request in the process that owns the trust store. `local` is set when the UI
+/// runs it in-process because no service answered.
+async fn serve(req: Request, local: bool) -> Value {
+    match req {
+        Request::Devices => ok(devices_json(&store::snapshot())),
+        Request::PairStart if local => err(
+            "Offload is not running in the background on this computer yet. Finish setup, then try again.",
+        ),
+        Request::PairStart => match server::start_pairing().await {
+            Ok(status) => ok(json!({ "status": status })),
+            Err(e) => err(e),
+        },
+        Request::PairStatus => ok(json!({ "status": server::pair_status() })),
+        Request::PairCancel => {
+            server::cancel_pairing();
+            ok(json!({}))
+        }
+        Request::PairDecide { id, approve } => {
+            if server::decide(&id, approve) {
+                ok(json!({}))
+            } else {
+                err("That request is no longer waiting for an answer.")
+            }
+        }
+        Request::DeviceAdd { device } => {
+            if device.public_key().is_none() || !offload_core::is_valid_device_id(&device.id) {
+                return err("invalid device");
+            }
+            match store::update(|s| s.upsert(device).map_err(|e| e.to_string())) {
+                Ok(()) => ok(json!({})),
+                Err(e) => err(e),
+            }
+        }
+        Request::DeviceRemove { id } => {
+            let removed = store::update(|s| Ok(s.remove(&id)));
+            let closed = disconnect(Some(&id));
+            log::info!("offload: removed {id}, closed {closed} session(s)");
+            match removed {
+                Ok(_) => ok(json!({ "closed": closed })),
+                Err(e) => err(e),
+            }
+        }
+        Request::DeviceRename { id, name } => match store::update(|s| Ok(s.rename(&id, &name))) {
+            Ok(true) => ok(json!({})),
+            Ok(false) => err("no such device"),
+            Err(e) => err(e),
+        },
+        Request::DevicesClear => {
+            let res = store::update(|s| {
+                s.clear();
+                Ok(())
+            })
+            .or_else(|_| store::reset());
+            let closed = disconnect(None);
+            match res {
+                Ok(()) => ok(json!({ "closed": closed })),
+                Err(e) => err(e),
+            }
+        }
+        Request::UnattendedSet { on } => {
+            // Granting more access from inside a remote session would let the remote side
+            // grant it to itself.
+            if on && has_remote_sessions() {
+                return err(MSG_UNATTENDED_LOCAL_ONLY);
+            }
+            match store::update(|s| {
+                s.unattended = on;
+                Ok(())
+            }) {
+                Ok(()) => ok(json!({ "unattended": on })),
+                Err(e) => err(e),
+            }
+        }
+        Request::Disconnect { id } => ok(json!({ "closed": disconnect(id.as_deref()) })),
+    }
+}
+
+/// The IPC server side.
+pub async fn handle(req: &str) -> String {
+    let resp = match serde_json::from_str::<Request>(req) {
+        Ok(r) => serve(r, false).await,
+        Err(e) => err(format!("bad request: {e}")),
+    };
+    resp.to_string()
+}
+
+fn timeout_ms(req: &Value) -> u64 {
+    if req.get("op").and_then(Value::as_str) == Some("pair_start") {
+        20_000
+    } else {
+        3_000
+    }
+}
+
+/// Sends a request to the service, or serves it in-process if no service answers.
+pub async fn call(req: Value) -> Value {
+    match rd_ipc::connect(1000, "").await {
+        Ok(mut c) => {
+            if let Err(e) = c.send(&Data::Offload(req.to_string())).await {
+                return err(format!("Offload background service: {e}"));
+            }
+            match c.next_timeout(timeout_ms(&req)).await {
+                Ok(Some(Data::Offload(resp))) => {
+                    serde_json::from_str(&resp).unwrap_or_else(|e| err(e))
+                }
+                Ok(_) => err("Offload background service sent an unexpected reply"),
+                Err(e) => err(format!("Offload background service did not answer: {e}")),
+            }
+        }
+        Err(_) => match serde_json::from_value::<Request>(req) {
+            Ok(r) => serve(r, true).await,
+            Err(e) => err(format!("bad request: {e}")),
+        },
+    }
+}
+
+/// The trust store as the service sees it.
+pub async fn trust_snapshot() -> TrustStore {
+    let resp = call(json!({ "op": "devices" })).await;
+    let devices = resp
+        .get("devices")
+        .cloned()
+        .and_then(|d| serde_json::from_value::<Vec<TrustedDevice>>(d).ok())
+        .unwrap_or_default();
+    TrustStore {
+        unattended: resp.get("unattended").and_then(Value::as_bool).unwrap_or(false),
+        devices,
+        ..Default::default()
+    }
+}

@@ -54,6 +54,7 @@ async-trait = "0.1"
 scrap = { path = "libs/scrap", features = ["wayland"] }
 hbb_common = { path = "libs/hbb_common", features = ["webrtc"] }
 base = { path = "libs/base" }
+offload_core = { path = "libs/offload_core" }
 serde_derive = "1.0"
 serde = "1.0"
 serde_json = "1.0"
@@ -275,7 +276,7 @@ tokio = { version = "1.44", features = ["test-util"] }
 
 [package.metadata.bundle]
 name = "RustDesk"
-identifier = "com.carriez.rustdesk"
+identifier = "com.offloadapp.offload"
 icon = ["res/32x32.png", "res/128x128.png", "res/128x128@2x.png"]
 osx_minimum_system_version = "10.14"
 
