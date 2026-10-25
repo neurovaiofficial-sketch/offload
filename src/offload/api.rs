@@ -16,7 +16,7 @@ fn ok_with(v: Value) -> Value {
 fn info() -> Value {
     json!({
         "ok": true,
-        "my_id": Config::get_id(),
+        "my_id": crate::ipc::get_id(),
         "name": super::my_name(),
         "platform": super::my_platform(),
         "version": crate::VERSION,
