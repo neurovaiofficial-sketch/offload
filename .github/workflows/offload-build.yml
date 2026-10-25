@@ -99,7 +99,8 @@ jobs:
 
       - name: Point the About page at this source repository
         shell: bash
-        run: sed -i "s|defaultValue: 'https://github.com/rustdesk/rustdesk'|defaultValue: '${{ github.server_url }}/${{ github.repository }}'|" flutter/lib/desktop/pages/offload_settings_page.dart
+        run: |
+          sed -i "s|defaultValue: 'https://github.com/rustdesk/rustdesk'|defaultValue: '${{ github.server_url }}/${{ github.repository }}'|" flutter/lib/desktop/pages/offload_settings_page.dart
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
@@ -228,7 +229,8 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Point the About page at this source repository
-        run: sed -i '' "s|defaultValue: 'https://github.com/rustdesk/rustdesk'|defaultValue: '${{ github.server_url }}/${{ github.repository }}'|" flutter/lib/desktop/pages/offload_settings_page.dart
+        run: |
+          sed -i '' "s|defaultValue: 'https://github.com/rustdesk/rustdesk'|defaultValue: '${{ github.server_url }}/${{ github.repository }}'|" flutter/lib/desktop/pages/offload_settings_page.dart
 
       - name: Import the codesign certificate
         if: env.MACOS_P12_BASE64 != ''

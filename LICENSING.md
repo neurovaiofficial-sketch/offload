@@ -47,7 +47,7 @@ Claude Code (users install it on their own computer from Anthropic, under Anthro
   "Copyright © 2026 Offload contributors and Purslane Tech Pte. Ltd. Licensed under the GNU
   AGPL v3", replacing upstream's "All rights reserved", which would contradict the licence.
 * **Modified files are marked** by this repository's history (upstream tag `1.5.0` is the base)
-  and listed in `OFFLOAD.md`.
+  and listed in `README.md`.
 * **FFmpeg (LGPL) linked statically** into an AGPL program is compatible; because the whole
   program's source and build scripts are provided, recipients can rebuild and relink, which is
   what the LGPL asks.
