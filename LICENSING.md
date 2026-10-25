@@ -19,6 +19,12 @@ have a lawyer confirm it before you sell or widely distribute Offload.
 | libsodium (via `sodiumoxide`) | libsodium.org | ISC | Statically linked |
 | Rust crates | crates.io / git | Mostly MIT / Apache-2.0 | See `THIRD_PARTY_NOTICES.md` |
 
+`THIRD_PARTY_NOTICES.md` (generated from `cargo metadata` for the Windows and macOS targets)
+lists 670+ Rust packages. None declares a GPL-family licence. Two RustDesk-organisation git
+dependencies declare no licence in their manifests (`default_net`, a fork of the MIT-licensed
+`default-net`, and `impersonate_system`); confirm their repositories' licences before a
+commercial distribution.
+
 Not bundled: the `usbmmidd` virtual display driver and the RustDesk printer driver that upstream's
 Windows CI downloads (their redistribution terms are unclear and Offload does not need them), and
 Claude Code (users install it on their own computer from Anthropic, under Anthropic's terms).
