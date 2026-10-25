@@ -119,8 +119,18 @@ check "command runs on A and its output comes back" "$(field "$P" output | grep 
 if [[ -n $DISPLAY_A ]]; then
   echo "== TEST 6 (Linux stand-in): remote desktop session streams the screen"
   P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"desktop\",\"wait\":40}")
+  echo "     direct attempt: $(field "$P" output)$(field "$P" error)"
+  if ! field "$P" output | grep -q "first video frame"; then
+    # Desktop sessions also try UDP hole punching, which on a single host can be answered by
+    # an ICMP "port unreachable" instead of silence; the relayed path avoids that.
+    NETEM=0
+    if command -v tc >/dev/null && tc qdisc add dev lo root netem delay 10ms 2>/dev/null; then NETEM=1; fi
+    P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"desktop\",\"wait\":40,\"relay\":true}")
+    [[ $NETEM == 1 ]] && tc qdisc del dev lo root
+    echo "     relayed attempt: $(field "$P" output)$(field "$P" error)"
+  fi
   check "B receives A's screen as encoded video" "$(field "$P" output | grep -q "first video frame" && echo 1 || echo 0)" "$P"
-  echo "     $(field "$P" output) displays=$(field "$P" peer.displays)"
+  echo "     $(field "$P" output) displays=$(field "$P" peer.displays) transport=$(field "$P" transport)"
 fi
 
 echo "== TEST 11: forced relay"
