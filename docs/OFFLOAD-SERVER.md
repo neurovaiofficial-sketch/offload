@@ -74,6 +74,17 @@ From any other machine:
   known addresses in `data/db_v2.sqlite3`; the pairing directory keeps codes for at most five
   minutes, in memory only.
 
+## Known server limitations (upstream hbbr 1.1.16)
+
+* hbbr treats connections from `127.0.0.1` as its admin console, so the relay cannot be used by
+  an Offload app running on the server machine itself (use the server's real address).
+* hbbr pairs the two ends of a relayed session with a non-atomic lookup-then-insert. If both
+  ends arrive within microseconds of each other that relay attempt fails (connecting again
+  works).
+  On real networks the second end arrives at least one round trip later, so this is rare; it
+  was reproduced only with both ends on one machine. A fixed hbbr would need a fork of
+  rustdesk-server.
+
 ## Security notes
 
 * hbbs and hbbr run with `-k _`: only apps built with this server's key can use it.

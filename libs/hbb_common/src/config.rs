@@ -117,9 +117,10 @@ const CHARS: &[char] = &[
 // Offload builds take their server and its public key at compile time
 // (OFFLOAD_RENDEZVOUS_SERVER, OFFLOAD_RS_PUB_KEY), so installed apps need no configuration.
 // Without them a build talks to a server on the same machine, for development only.
+// CI passes unset repository variables as empty strings, which count as unset here.
 pub const RENDEZVOUS_SERVERS: &[&str] = &[match option_env!("OFFLOAD_RENDEZVOUS_SERVER") {
-    Some(s) => s,
-    None => "127.0.0.1",
+    Some(s) if !s.is_empty() => s,
+    _ => "127.0.0.1",
 }];
 pub const RS_PUB_KEY: &str = match option_env!("OFFLOAD_RS_PUB_KEY") {
     Some(s) => s,
@@ -127,8 +128,8 @@ pub const RS_PUB_KEY: &str = match option_env!("OFFLOAD_RS_PUB_KEY") {
 };
 #[cfg(target_os = "macos")]
 pub const OFFLOAD_ORG: &str = match option_env!("OFFLOAD_ORG") {
-    Some(s) => s,
-    None => "com.offloadapp",
+    Some(s) if !s.is_empty() => s,
+    _ => "com.offloadapp",
 };
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
