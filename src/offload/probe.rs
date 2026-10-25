@@ -43,9 +43,10 @@ fn strip_ansi(s: &str) -> String {
     out
 }
 
-/// `mode` is "login" (log in only), "files" (log in and list the home folder; the other
-/// computer lists it through its session window, so someone must be signed in there) or "run"
-/// (log in, open a terminal and run `command`); `relay` forces the relayed path.
+/// `mode` is "login" (log in only), "desktop" (a remote desktop session, until the first video
+/// frame arrives), "files" (log in and list the home folder; the other computer lists it
+/// through its session window, so someone must be signed in there) or "run" (log in, open a
+/// terminal and run `command`); `relay` forces the relayed path.
 pub async fn probe(peer_id: &str, mode: &str, command: &str, wait_secs: u64, relay: bool) -> Value {
     match probe_(peer_id, mode, command, wait_secs, relay).await {
         Ok(v) => v,
@@ -63,6 +64,7 @@ async fn probe_(
     let conn_type = match mode {
         "login" | "files" => ConnType::FILE_TRANSFER,
         "run" => ConnType::TERMINAL,
+        "desktop" => ConnType::DEFAULT_CONN,
         _ => return Err(format!("unknown mode {mode}")),
     };
     let ui = HeadlessUi::new(peer_id, conn_type, relay);
@@ -113,6 +115,7 @@ async fn probe_(
                         "platform": pi.platform,
                         "username": pi.username,
                         "version": pi.version,
+                        "displays": pi.displays.len(),
                     });
                     if mode == "login" {
                         break;
@@ -132,6 +135,18 @@ async fn probe_(
                 }
                 _ => {}
             },
+            Some(message::Union::VideoFrame(vf)) if mode == "desktop" => {
+                let codec = match vf.union {
+                    Some(video_frame::Union::Vp8s(_)) => "VP8",
+                    Some(video_frame::Union::Vp9s(_)) => "VP9",
+                    Some(video_frame::Union::Av1s(_)) => "AV1",
+                    Some(video_frame::Union::H264s(_)) => "H.264",
+                    Some(video_frame::Union::H265s(_)) => "H.265",
+                    _ => "raw",
+                };
+                output = format!("first video frame from display {}: {codec}", vf.display);
+                break;
+            }
             Some(message::Union::FileResponse(fr)) => {
                 if let Some(file_response::Union::Dir(dir)) = fr.union {
                     let names: Vec<String> = dir.entries.iter().take(50).map(|e| e.name.clone()).collect();
