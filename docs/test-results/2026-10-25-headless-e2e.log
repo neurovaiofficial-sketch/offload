@@ -1,0 +1,56 @@
+== waiting for both services to register with the server
+A=770606892 B=790942001
+PASS  both devices have distinct ids
+== TEST 3/4/5: pair with a code, approve, persistent trust
+PASS  A shows a code
+PASS  A is asked to approve B
+PASS  A approves
+PASS  B reports linked with A
+PASS  A trusts B
+PASS  B trusts A
+PASS  a used code cannot be used again
+== attended: a linked device still needs someone to accept
+PASS  without unattended access nobody accepted, so no session
+== TEST 12: unattended access
+PASS  A turns unattended access on
+PASS  B logs in to A (file session) without approval
+     transport=TCP direct=True peer={"hostname": "desktop-56v0tv4", "platform": "Linux", "username": "dev", "version": "1.5.0"}
+== TEST 14 (Linux stand-in): run a computation on A from B
+PASS  command runs on A and its output comes back
+== TEST 11: forced relay
+PASS  session works through the relay
+     transport=Relay
+== TEST 9: reconnect without pairing again
+PASS  second session needs no code
+== reverse direction (TEST 7 stand-in): A connects to B
+PASS  A opens a session on B
+== wrong codes
+PASS  three wrong codes lock the code
+PASS  A shows the code as locked
+== TEST 13: revoke
+PASS  A removes B
+PASS  B is refused after revocation
+== remove all also turns unattended off
+PASS  B removes all devices
+
+PASS  both devices have distinct ids
+PASS  A shows a code
+PASS  A is asked to approve B
+PASS  A approves
+PASS  B reports linked with A
+PASS  A trusts B
+PASS  B trusts A
+PASS  a used code cannot be used again
+PASS  without unattended access nobody accepted, so no session
+PASS  A turns unattended access on
+PASS  B logs in to A (file session) without approval
+PASS  command runs on A and its output comes back
+PASS  session works through the relay
+PASS  second session needs no code
+PASS  A opens a session on B
+PASS  three wrong codes lock the code
+PASS  A shows the code as locked
+PASS  A removes B
+PASS  B is refused after revocation
+PASS  B removes all devices
+passed 20, failed 0
