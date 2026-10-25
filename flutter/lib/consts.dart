@@ -238,6 +238,7 @@ const String kTabLabelOffloadSettingPage = "Offload settings";
 
 /// Offload's simplified screens replace RustDesk's home and settings pages.
 const bool kOffload = true;
+const String kOffloadLicenseUrl = 'https://www.gnu.org/licenses/agpl-3.0.html';
 
 const String kWindowPrefix = "wm_";
 const int kWindowMainId = 0;
