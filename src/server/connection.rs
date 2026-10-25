@@ -2884,6 +2884,7 @@ impl Connection {
             if !self.check_id_whitelist().await {
                 return false;
             }
+            let offload_check = self.offload_check_login(&lr);
             match lr.union {
                 Some(login_request::Union::FileTransfer(ft)) => {
                     if !Self::permission(
@@ -2979,7 +2980,7 @@ impl Connection {
                 self.try_start_cm_ipc();
             }
 
-            if let Some(keep_alive) = self.offload_login_hook(&lr).await {
+            if let Some(keep_alive) = self.offload_login_hook(offload_check, &lr.my_id).await {
                 return keep_alive;
             }
 

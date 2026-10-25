@@ -1,7 +1,7 @@
 //! What the UI calls, as JSON in and JSON out (see `main_offload_call` in `flutter_ffi.rs`).
 
 use super::{ipc, pair};
-use hbb_common::config::Config;
+use hbb_common::{config::Config, tokio};
 use serde_json::{json, Value};
 
 #[tokio::main(flavor = "current_thread")]
@@ -56,4 +56,63 @@ pub fn call(method: &str, args: &str) -> String {
         _ => json!({ "ok": false, "error": format!("unknown method {method}") }),
     };
     resp.to_string()
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn run_probe(id: String, mode: String, command: String, wait: u64) -> Value {
+    super::probe::probe(&id, &mode, &command, wait).await
+}
+
+fn wait_for<F: Fn(&Value) -> bool>(method: &str, done: F, secs: u64) -> Value {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+    loop {
+        let v: Value = serde_json::from_str(&call(method, "{}")).unwrap_or_default();
+        if done(&v) || std::time::Instant::now() >= deadline {
+            return v;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
+fn state(v: &Value) -> &str {
+    v.get("status")
+        .and_then(|s| s.get("state"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+}
+
+/// `Offload --offload <method> [json]`: the same operations as the UI, for scripts and support.
+/// Besides the UI methods: `link {"code"}` links and waits for the outcome, `pair_wait` waits
+/// for the next pairing event, and `probe {"id","mode":"files"|"run","command","wait"}` tests
+/// a connection to a linked computer.
+pub fn cli(args: &[String]) -> String {
+    let method = args.first().map(String::as_str).unwrap_or("info");
+    let json_args = args.get(1).map(String::as_str).unwrap_or("{}");
+    let parsed: Value = serde_json::from_str(json_args).unwrap_or_else(|_| json!({}));
+    let get = |k: &str| parsed.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
+    match method {
+        "link" => {
+            call("link_start", json_args);
+            wait_for(
+                "link_status",
+                |v| matches!(state(v), "linked" | "failed" | "idle"),
+                200,
+            )
+            .to_string()
+        }
+        "pair_wait" => wait_for(
+            "pair_status",
+            |v| !matches!(state(v), "waiting"),
+            parsed.get("wait").and_then(Value::as_u64).unwrap_or(300),
+        )
+        .to_string(),
+        "probe" => run_probe(
+            get("id"),
+            get("mode"),
+            get("command"),
+            parsed.get("wait").and_then(Value::as_u64).unwrap_or(60),
+        )
+        .to_string(),
+        _ => call(method, json_args),
+    }
 }

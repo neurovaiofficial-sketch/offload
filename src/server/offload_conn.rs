@@ -45,34 +45,43 @@ impl Connection {
         Some(false)
     }
 
-    /// Admits only devices paired with this one, by signature over this connection's challenge.
-    /// Unless the owner allowed unattended access, the owner still accepts each session.
-    pub(super) async fn offload_login_hook(&mut self, lr: &LoginRequest) -> Option<bool> {
+    /// Checks the login's device signature while the whole request is still at hand; the
+    /// verdict is acted on by [`Self::offload_login_hook`] once the session kind is set up.
+    pub(super) fn offload_check_login(&self, lr: &LoginRequest) -> Option<LoginCheck> {
         if !crate::offload::ENFORCED {
             return None;
         }
-        let check = offload::verify_login(
+        Some(offload::verify_login(
             lr,
             &self.hash.salt,
             &self.hash.challenge,
             self.stream.is_secured(),
-        );
-        match check {
+        ))
+    }
+
+    /// Admits only devices paired with this one, by signature over this connection's challenge.
+    /// Unless the owner allowed unattended access, the owner still accepts each session.
+    pub(super) async fn offload_login_hook(
+        &mut self,
+        check: Option<LoginCheck>,
+        my_id: &str,
+    ) -> Option<bool> {
+        match check? {
             LoginCheck::Trusted { name, unattended } => {
                 if unattended {
                     if !self.send_logon_response_and_keep_alive().await {
                         return Some(false);
                     }
-                    self.try_start_cm(lr.my_id.clone(), name, self.authorized);
+                    self.try_start_cm(my_id.to_owned(), name, self.authorized);
                 } else {
-                    self.try_start_cm(lr.my_id.clone(), name, false);
+                    self.try_start_cm(my_id.to_owned(), name, false);
                     self.send_login_error(crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS)
                         .await;
                 }
                 Some(true)
             }
             LoginCheck::Rejected(msg) => {
-                log::info!("offload: refused a login from {}: {}", lr.my_id, msg);
+                log::info!("offload: refused a login from {}: {}", my_id, msg);
                 self.send_login_error(msg).await;
                 sleep(1.).await;
                 Some(false)

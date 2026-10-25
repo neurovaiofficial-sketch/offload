@@ -12,8 +12,10 @@
 pub mod api;
 pub mod client;
 pub mod directory;
+pub mod headless;
 pub mod ipc;
 pub mod pair;
+pub mod probe;
 pub mod server;
 pub mod store;
 

@@ -1,12 +1,10 @@
 //! The side that types a code: finds the computer showing it and asks to be linked.
 
-use super::{directory, ipc};
-use crate::client::{Client, Interface, LoginConfigHandler, Data};
-use async_trait::async_trait;
+use super::{directory, headless::HeadlessUi, ipc};
+use crate::client::Client;
 use base::message_proto::*;
 use hbb_common::{
     config::Config,
-    futures::StreamExt,
     get_time, log,
     protobuf::Message as _,
     rendezvous_proto::ConnType,
@@ -19,7 +17,7 @@ use offload_core::{
 };
 use serde::Serialize;
 use serde_json::json;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Mutex;
 
 /// Long enough for the owner of the other computer to walk over and approve.
 const LINK_DEADLINE: Duration = Duration::from_secs(150);
@@ -119,7 +117,7 @@ async fn link(generation: u64, code: &str) -> Result<TrustedDevice, String> {
         return Err("cancelled".to_owned());
     }
 
-    let ui = PairUi::new(&peer_id);
+    let ui = HeadlessUi::new(&peer_id, ConnType::DEFAULT_CONN);
     let key = crate::common::get_key(true).await;
     let ((mut stream, _direct, peer_pk, _kcp, _typ), _) =
         Client::start(&peer_id, &key, "", ConnType::DEFAULT_CONN, ui.clone())
@@ -250,58 +248,4 @@ fn pair_request(peer_id: &str, code: &PairingCode, hash: &Hash) -> Result<Messag
     let mut msg = Message::new();
     msg.set_login_request(lr);
     Ok(msg)
-}
-
-/// The minimal interface `Client::start` needs to set up the connection; pairing has no
-/// window, so prompts are logged rather than shown.
-#[derive(Clone)]
-struct PairUi {
-    lc: Arc<RwLock<LoginConfigHandler>>,
-}
-
-impl PairUi {
-    fn new(peer_id: &str) -> Self {
-        let mut lc = LoginConfigHandler::default();
-        lc.initialize(
-            peer_id.to_owned(),
-            ConnType::DEFAULT_CONN,
-            None,
-            false,
-            None,
-            None,
-            None,
-        );
-        Self {
-            lc: Arc::new(RwLock::new(lc)),
-        }
-    }
-}
-
-#[async_trait]
-impl Interface for PairUi {
-    fn send(&self, _data: Data) {}
-    fn msgbox(&self, msgtype: &str, title: &str, text: &str, _link: &str) {
-        log::info!("offload: pairing connection {msgtype}: {title}: {text}");
-    }
-    fn handle_login_error(&self, _err: &str) -> bool {
-        false
-    }
-    fn handle_peer_info(&self, _pi: PeerInfo) {}
-    fn set_multiple_windows_session(&self, _sessions: Vec<WindowsSession>) {}
-    async fn handle_hash(&self, _pass: &str, _hash: Hash, _peer: &mut Stream) -> bool {
-        false
-    }
-    async fn handle_login_from_ui(
-        &self,
-        _os_username: String,
-        _os_password: String,
-        _password: String,
-        _remember: bool,
-        _peer: &mut Stream,
-    ) {
-    }
-    async fn handle_test_delay(&self, _t: TestDelay, _peer: &mut Stream) {}
-    fn get_lch(&self) -> Arc<RwLock<LoginConfigHandler>> {
-        self.lc.clone()
-    }
 }

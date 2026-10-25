@@ -237,6 +237,14 @@ class _OffloadSettingsPageState extends State<OffloadSettingsPage> {
                     ? 'Once installed, Offload runs in the background when Windows starts so your linked computers can reach it.'
                     : 'Offload starts its background helper when you log in, after you grant Screen Recording and Accessibility.'),
               ),
+              ListTile(
+                leading: const Icon(Icons.pause_circle_outline),
+                title: const Text('Stop accepting connections'),
+                subtitle: Text(isMacOS
+                    ? 'Stops and removes the background helper. Start it again from the home screen.'
+                    : 'Stops the background service until you start it again from the home screen.'),
+                onTap: () => start_service(false),
+              ),
             ]),
             _section('Advanced', [
               ListTile(

@@ -24,8 +24,8 @@ service, shortcuts and program files.
    System Settings, and to install its background helper. macOS requires you to grant these
    yourself; Offload cannot and does not bypass them.
 
-To remove: quit Offload, delete it from Applications. The helper is removed by
-**Offload → Settings → Advanced → Uninstall** (or the uninstall entry in the app menu).
+To remove: in Offload choose **Settings → Startup → Stop accepting connections** (this removes
+the background helper), quit Offload, and drag it from Applications to the Bin.
 
 ## Link two computers (once)
 
