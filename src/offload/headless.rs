@@ -14,9 +14,9 @@ pub struct HeadlessUi {
 }
 
 impl HeadlessUi {
-    pub fn new(peer_id: &str, conn_type: ConnType) -> Self {
+    pub fn new(peer_id: &str, conn_type: ConnType, force_relay: bool) -> Self {
         let mut lc = LoginConfigHandler::default();
-        lc.initialize(peer_id.to_owned(), conn_type, None, false, None, None, None);
+        lc.initialize(peer_id.to_owned(), conn_type, None, force_relay, None, None, None);
         Self {
             lc: Arc::new(RwLock::new(lc)),
             last_message: Default::default(),

@@ -44,21 +44,27 @@ fn strip_ansi(s: &str) -> String {
 }
 
 /// `mode` is "files" (log in and list the home folder) or "run" (log in, open a terminal and
-/// run `command`). Returns what happened as JSON.
-pub async fn probe(peer_id: &str, mode: &str, command: &str, wait_secs: u64) -> Value {
-    match probe_(peer_id, mode, command, wait_secs).await {
+/// run `command`); `relay` forces the relayed path. Returns what happened as JSON.
+pub async fn probe(peer_id: &str, mode: &str, command: &str, wait_secs: u64, relay: bool) -> Value {
+    match probe_(peer_id, mode, command, wait_secs, relay).await {
         Ok(v) => v,
         Err(e) => json!({ "ok": false, "error": e }),
     }
 }
 
-async fn probe_(peer_id: &str, mode: &str, command: &str, wait_secs: u64) -> Result<Value, String> {
+async fn probe_(
+    peer_id: &str,
+    mode: &str,
+    command: &str,
+    wait_secs: u64,
+    relay: bool,
+) -> Result<Value, String> {
     let conn_type = match mode {
         "files" => ConnType::FILE_TRANSFER,
         "run" => ConnType::TERMINAL,
         _ => return Err(format!("unknown mode {mode}")),
     };
-    let ui = HeadlessUi::new(peer_id, conn_type);
+    let ui = HeadlessUi::new(peer_id, conn_type, relay);
     let key = crate::common::get_key(true).await;
     let started = std::time::Instant::now();
     let ((mut stream, direct, pk, _kcp, transport), _) =

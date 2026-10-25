@@ -117,7 +117,7 @@ async fn link(generation: u64, code: &str) -> Result<TrustedDevice, String> {
         return Err("cancelled".to_owned());
     }
 
-    let ui = HeadlessUi::new(&peer_id, ConnType::DEFAULT_CONN);
+    let ui = HeadlessUi::new(&peer_id, ConnType::DEFAULT_CONN, false);
     let key = crate::common::get_key(true).await;
     let ((mut stream, _direct, peer_pk, _kcp, _typ), _) =
         Client::start(&peer_id, &key, "", ConnType::DEFAULT_CONN, ui.clone())

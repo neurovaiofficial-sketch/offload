@@ -59,8 +59,8 @@ pub fn call(method: &str, args: &str) -> String {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn run_probe(id: String, mode: String, command: String, wait: u64) -> Value {
-    super::probe::probe(&id, &mode, &command, wait).await
+async fn run_probe(id: String, mode: String, command: String, wait: u64, relay: bool) -> Value {
+    super::probe::probe(&id, &mode, &command, wait, relay).await
 }
 
 fn wait_for<F: Fn(&Value) -> bool>(method: &str, done: F, secs: u64) -> Value {
@@ -84,7 +84,7 @@ fn state(v: &Value) -> &str {
 /// `Offload --offload <method> [json]`: the same operations as the UI, for scripts and support.
 /// Besides the UI methods: `link {"code"}` links and waits for the outcome, `pair_wait` waits
 /// for the next pairing event, and `probe {"id","mode":"files"|"run","command","wait"}` tests
-/// a connection to a linked computer.
+/// a connection to a linked computer (`"relay": true` forces the relayed path).
 pub fn cli(args: &[String]) -> String {
     let method = args.first().map(String::as_str).unwrap_or("info");
     let json_args = args.get(1).map(String::as_str).unwrap_or("{}");
@@ -111,6 +111,7 @@ pub fn cli(args: &[String]) -> String {
             get("mode"),
             get("command"),
             parsed.get("wait").and_then(Value::as_u64).unwrap_or(60),
+            parsed.get("relay").and_then(Value::as_bool).unwrap_or(false),
         )
         .to_string(),
         _ => call(method, json_args),
