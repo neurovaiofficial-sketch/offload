@@ -31,10 +31,11 @@ for u in offa offb; do
   id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
 done
 
-# With Xvfb installed, computer A gets an off-screen X display so a real remote desktop session
-# (capture, encode, stream) can be tested too.
+# E2E_DESKTOP=1 also tests a real remote desktop session (capture, encode, stream) on an
+# off-screen X display. It needs computer A's session window (connection manager) to start,
+# which on Linux requires a logged-in graphical session, so it is off by default.
 DISPLAY_A=""
-if command -v Xvfb >/dev/null; then
+if [[ "${E2E_DESKTOP:-0}" == 1 ]] && command -v Xvfb >/dev/null; then
   pkill -f "Xvfb :98" 2>/dev/null
   Xvfb :98 -ac -screen 0 1280x720x24 >/tmp/xvfb-e2e.log 2>&1 &
   XVFB_PID=$!
