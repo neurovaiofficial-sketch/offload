@@ -72,7 +72,9 @@ A = computer showing the code         B = computer the code is typed into
    sig_B is valid for pk_B, and at most 10 pairing requests arrived in the last minute.
    Three wrong codes kill the code. The first correct request locks the code for this
    requester only.
-6. A's owner sees "<B name> wants to link with this computer.  [APPROVE] [DENY]" (2 minutes).
+6. A's owner sees "<B name> wants to link with this computer.  [APPROVE] [DENY]" (2 minutes),
+   with B's device ID and key fingerprint; B's link dialog shows the same two values, since
+   B's name is chosen by B and cannot be trusted on its own.
 7. On approval A stores {B, name, platform, pk_B} and answers {name, platform}; B stores
    {A, name, platform, pk_A} where pk_A is the key the channel was secured with.
    The code is spent and its slot is released.
@@ -95,7 +97,7 @@ Properties:
 ```
 B connects to A. The channel is secured; B requires the key to equal pin(A), else it stops
 ("identity changed").
-A → B: Hash{salt, challenge}            (fresh per connection)
+A → B: Hash{salt, challenge}            (fresh per connection; 160 random bits)
 B → A: LoginRequest{ offload_auth: {pk_B, sig} }, sig = Ed25519_B("OFFLOAD/AUTH/1" ‖ A ‖ B ‖
        salt ‖ challenge ‖ kind ‖ pk_B), kind ∈ desktop | file | terminal | camera | forward
 A: requires a secured channel, B in the trust store, pk_B == pin(B), valid sig.
@@ -112,9 +114,18 @@ open a remote desktop session (the session kind is signed).
 
 * "Allow my trusted devices to connect when I am away" is stored with the trust store, off by
   default and after "Remove all".
-* Turning it on asks for confirmation and then the operating system's own authentication (UAC
-  on Windows, administrator password/Touch ID on macOS). The service refuses to turn it on while
-  any remote session is active, so a remote user cannot grant it to themselves.
+* Turning it on asks for confirmation and then the operating system's own authentication.
+  On Windows the service (LocalSystem) enforces this itself: it accepts the change only from an
+  elevated caller, so the app starts an elevated helper through UAC. On macOS the app asks for
+  the administrator password (or Touch ID) before sending the request; the per-user service
+  cannot verify that, so a program already running as that user could turn it on — a known
+  limit, the same boundary RustDesk's own settings have.
+* The service refuses to turn it on while any remote session is active, so a remote user
+  cannot grant it to themselves.
+* No local request can add a trusted device: devices enter the store only at the end of a
+  pairing exchange the service ran itself, which needs the other computer's owner to approve.
+* RustDesk's "switch sides" (which authorized the reverse session by a one-time id instead of a
+  device signature) is refused.
 * Removing a device or all devices immediately closes their sessions. "Disconnect everyone now"
   closes all sessions.
 * RustDesk's connection window stays visible during every session (active-session indicator).

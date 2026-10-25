@@ -1,5 +1,5 @@
 == waiting for both services to register with the server
-A=770606892 B=790942001
+A=782881567 B=706168270
 PASS  both devices have distinct ids
 == TEST 3/4/5: pair with a code, approve, persistent trust
 PASS  A shows a code
