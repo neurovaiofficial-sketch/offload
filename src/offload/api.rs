@@ -1,6 +1,6 @@
 //! What the UI calls, as JSON in and JSON out (see `main_offload_call` in `flutter_ffi.rs`).
 
-use super::{ipc, pair};
+use super::ipc;
 use hbb_common::{config::Config, tokio};
 use serde_json::{json, Value};
 
@@ -9,8 +9,25 @@ async fn service(req: Value) -> Value {
     ipc::call(req).await
 }
 
-fn ok_with(v: Value) -> Value {
-    json!({ "ok": true, "status": v })
+/// Windows: asks for administrator consent (UAC) and turns unattended access on from an
+/// elevated copy of Offload, the only kind of caller the service accepts this from. The UI
+/// watches the device list for the change. Elsewhere the UI has already asked the OS for the
+/// user's password and the service accepts the change directly.
+fn enable_unattended() -> Value {
+    #[cfg(windows)]
+    {
+        let exe = match std::env::current_exe() {
+            Ok(p) => p.to_string_lossy().to_string(),
+            Err(e) => return json!({ "ok": false, "error": e.to_string() }),
+        };
+        return match crate::platform::windows::run_uac(&exe, "--offload unattended_on") {
+            Ok(true) => json!({ "ok": true, "pending": true }),
+            Ok(false) => json!({ "ok": false, "error": "Administrator approval was not given." }),
+            Err(e) => json!({ "ok": false, "error": e.to_string() }),
+        };
+    }
+    #[cfg(not(windows))]
+    service(json!({ "op": "unattended_set", "on": true }))
 }
 
 fn info() -> Value {
@@ -35,19 +52,10 @@ pub fn call(method: &str, args: &str) -> String {
     };
     let resp = match method {
         "info" => info(),
-        "link_start" => {
-            let code = req.get("code").and_then(Value::as_str).unwrap_or_default();
-            pair::start_link(code.to_owned());
-            ok_with(json!(pair::link_status()))
-        }
-        "link_status" => ok_with(json!(pair::link_status())),
-        "link_cancel" => {
-            pair::cancel_link();
-            ok_with(json!(pair::link_status()))
-        }
+        "unattended_enable" => enable_unattended(),
         "devices" | "pair_start" | "pair_status" | "pair_cancel" | "pair_decide"
-        | "device_remove" | "device_rename" | "devices_clear" | "unattended_set"
-        | "disconnect" => {
+        | "link_start" | "link_status" | "link_cancel" | "device_remove" | "device_rename"
+        | "devices_clear" | "unattended_set" | "disconnect" => {
             if let Some(m) = req.as_object_mut() {
                 m.insert("op".into(), method.into());
             }
@@ -114,6 +122,7 @@ pub fn cli(args: &[String]) -> String {
             parsed.get("relay").and_then(Value::as_bool).unwrap_or(false),
         )
         .to_string(),
+        "unattended_on" => call("unattended_set", r#"{"on":true}"#),
         _ => call(method, json_args),
     }
 }

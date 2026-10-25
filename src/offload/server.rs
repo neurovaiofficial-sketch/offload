@@ -246,15 +246,20 @@ pub fn verify_login(lr: &LoginRequest, salt: &str, challenge: &str, secured: boo
     if !crypto::verify(&payload, &auth.sig, &pk) {
         return LoginCheck::Rejected(super::MSG_NOT_LINKED);
     }
-    let id = lr.my_id.clone();
-    std::thread::spawn(move || {
-        if let Err(e) = store::update(|s| {
-            s.touch(&id, offload_core::now());
-            Ok(())
-        }) {
-            log::debug!("offload: could not record last connection: {e}");
-        }
-    });
+    // Recorded at most every ten minutes, so a peer reconnecting in a loop cannot turn
+    // logins into a stream of disk writes.
+    let now = offload_core::now();
+    if now - device.last_seen > 600 {
+        let id = lr.my_id.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = store::update(|s| {
+                s.touch(&id, now);
+                Ok(())
+            }) {
+                log::debug!("offload: could not record last connection: {e}");
+            }
+        });
+    }
     LoginCheck::Trusted {
         name: device.name.clone(),
         unattended: trust.unattended,

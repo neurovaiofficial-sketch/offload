@@ -677,6 +677,26 @@ pub async fn start(postfix: &str) -> ResultType<()> {
     }
 }
 
+/// Whether the process on the other end runs with administrator rights (elevated or
+/// LocalSystem on Windows, root elsewhere); Offload requires that to grant unattended access.
+#[cfg(windows)]
+fn offload_peer_is_privileged(stream: &Connection) -> bool {
+    stream.peer_pid().is_some_and(|pid| {
+        crate::platform::windows::is_elevated(Some(pid)).unwrap_or(false)
+            || crate::platform::windows::is_process_running_as_system(pid).unwrap_or(false)
+    })
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn offload_peer_is_privileged(stream: &Connection) -> bool {
+    stream.peer_uid() == Some(0)
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+fn offload_peer_is_privileged(_stream: &Connection) -> bool {
+    false
+}
+
 pub async fn new_listener(postfix: &str) -> ResultType<Incoming> {
     let path = Config::ipc_path(postfix);
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -1044,7 +1064,8 @@ async fn handle(data: Data, stream: &mut Connection) {
             }
         },
         Data::Offload(req) => {
-            let resp = crate::offload::ipc::handle(&req).await;
+            let privileged = offload_peer_is_privileged(stream);
+            let resp = crate::offload::ipc::handle(&req, privileged).await;
             allow_err!(stream.send(&Data::Offload(resp)).await);
         }
         Data::NatType(_) => {

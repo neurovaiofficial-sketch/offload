@@ -66,6 +66,7 @@ class OffloadModel with ChangeNotifier {
   List<OffloadDevice> devices = [];
   bool unattended = false;
   String myId = '';
+  String myFingerprint = '';
   String? selectedId;
   String error = '';
   bool loaded = false;
@@ -123,6 +124,7 @@ class OffloadModel with ChangeNotifier {
     devices.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     unattended = r.data['unattended'] == true;
     myId = r.data['my_id'] ?? '';
+    myFingerprint = r.data['my_fingerprint'] ?? '';
     loaded = true;
     if (devices.isNotEmpty) {
       bind.queryOnlines(ids: devices.map((d) => d.id).toList());
@@ -153,8 +155,24 @@ class OffloadModel with ChangeNotifier {
     return r;
   }
 
+  /// Turning it on needs administrator consent: on Windows the Rust side shows UAC and an
+  /// elevated helper makes the change, which this waits for.
   Future<OffloadResult> setUnattended(bool on) async {
-    final r = await offloadCall('unattended_set', {'on': on});
+    if (!on) {
+      final r = await offloadCall('unattended_set', {'on': false});
+      await refresh();
+      return r;
+    }
+    final r = await offloadCall('unattended_enable');
+    if (r.ok && r.data['pending'] == true) {
+      for (var i = 0; i < 60 && !unattended; i++) {
+        await Future.delayed(const Duration(seconds: 1));
+        await refresh();
+      }
+      return unattended
+          ? r
+          : OffloadResult(false, 'Unattended access was not turned on.', r.data);
+    }
     await refresh();
     return r;
   }

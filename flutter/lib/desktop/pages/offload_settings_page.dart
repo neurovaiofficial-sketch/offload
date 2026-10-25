@@ -93,8 +93,10 @@ class _OffloadSettingsPageState extends State<OffloadSettingsPage> {
               'Only turn this on for computers you own.',
           'Allow');
       if (!yes) return;
-      // The operating system confirms the change (administrator password, Touch ID or UAC).
-      if (!await callMainCheckSuperUserPermission()) return;
+      // The operating system confirms the change: on Windows the UAC prompt comes from the
+      // Rust side (the service only accepts it from an elevated helper); elsewhere the
+      // administrator password or Touch ID is asked here.
+      if (!isWindows && !await callMainCheckSuperUserPermission()) return;
     }
     final r = await offloadModel.setUnattended(on);
     if (!r.ok) showToast(r.error);
@@ -221,7 +223,7 @@ class _OffloadSettingsPageState extends State<OffloadSettingsPage> {
               ListTile(
                 title: const Text('This computer'),
                 subtitle: SelectableText(
-                    'ID ${model.myId}\nIdentity fingerprint $_fingerprint'),
+                    'ID ${model.myId}\nOffload fingerprint ${model.myFingerprint}\nConnection fingerprint $_fingerprint'),
               ),
               const ListTile(
                 title: Text('How Offload protects you'),

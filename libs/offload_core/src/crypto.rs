@@ -147,6 +147,18 @@ pub fn public_key_of(secret_key: &[u8]) -> Option<Vec<u8>> {
     Some(secret_key[SECRET_KEY_LEN - PUBLIC_KEY_LEN..].to_vec())
 }
 
+/// A short, readable digest of a public key for people to compare: the first 8 bytes of its
+/// SHA-256, as four groups of four hex digits.
+pub fn fingerprint(public_key: &[u8]) -> String {
+    init();
+    let digest = sodiumoxide::crypto::hash::sha256::hash(public_key);
+    digest.0[..8]
+        .chunks(2)
+        .map(|c| format!("{:02x}{:02x}", c[0], c[1]))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Constant-time equality for secrets of equal length.
 pub fn secure_eq(a: &[u8], b: &[u8]) -> bool {
     init();
@@ -253,6 +265,15 @@ mod tests {
         assert!(!verify(b"x", &sig[..10], &pk));
         assert!(!verify(b"x", &sig, &pk[..5]));
         assert_eq!(public_key_of(&sk).unwrap(), pk);
+    }
+
+    #[test]
+    fn fingerprints_are_short_stable_and_key_specific() {
+        let (a, _) = test_keypair();
+        let (b, _) = test_keypair();
+        assert_eq!(fingerprint(&a), fingerprint(&a));
+        assert_ne!(fingerprint(&a), fingerprint(&b));
+        assert_eq!(fingerprint(&a).len(), 19);
     }
 
     #[test]

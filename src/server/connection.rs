@@ -546,7 +546,7 @@ impl Connection {
         let salt = Config::get_effective_permanent_password_salt();
         let hash = Hash {
             salt,
-            challenge: Config::get_auto_password(6),
+            challenge: crate::offload::login_challenge(),
             ..Default::default()
         };
         let (tx_from_cm_holder, mut rx_from_cm) = mpsc::unbounded_channel::<ipc::Data>();
@@ -3117,6 +3117,10 @@ impl Connection {
                 }
             }
         } else if let Some(message::Union::SwitchSidesResponse(_s)) = msg.union {
+            if crate::offload::ENFORCED {
+                self.send_login_error("Connection not allowed").await;
+                return false;
+            }
             #[cfg(feature = "flutter")]
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(lr) = _s.lr.clone().take() {

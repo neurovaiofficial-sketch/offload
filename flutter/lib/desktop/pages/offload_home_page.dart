@@ -399,6 +399,10 @@ void showLinkDialog(BuildContext context) {
         children: [
           const Text(
               "On your other computer, open Offload and choose THIS COMPUTER'S CODE. Type the code here."),
+          const SizedBox(height: 8),
+          SelectableText(
+              'This computer: ID ${offloadModel.myId}  ·  fingerprint ${offloadModel.myFingerprint}',
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 16),
           TextField(
             controller: controller,
@@ -528,9 +532,15 @@ void showMyCodeDialog(BuildContext context) {
               '${req['name']}${(req['platform'] ?? '') != '' ? ' (${req['platform']})' : ''} wants to link with this computer.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          SelectableText(
+              'ID ${req['id']}\nFingerprint ${req['fingerprint'] ?? ''}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'monospace')),
           const SizedBox(height: 8),
           const Text(
-              'Only approve a computer you own. Linked computers can ask to control this one.',
+              'Check that this ID and fingerprint match the ones shown on the computer you are linking. '
+              'Only approve a computer you own: linked computers can ask to control this one.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey)),
         ]);

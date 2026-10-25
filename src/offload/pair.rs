@@ -1,6 +1,7 @@
 //! The side that types a code: finds the computer showing it and asks to be linked.
+//! Runs in the service, which owns the trust store the result is written to.
 
-use super::{directory, headless::HeadlessUi, ipc};
+use super::{directory, headless::HeadlessUi, store};
 use crate::client::Client;
 use base::message_proto::*;
 use hbb_common::{
@@ -16,7 +17,6 @@ use offload_core::{
     PairingCode, TrustedDevice,
 };
 use serde::Serialize;
-use serde_json::json;
 use std::sync::Mutex;
 
 /// Long enough for the owner of the other computer to walk over and approve.
@@ -137,14 +137,9 @@ async fn link(generation: u64, code: &str) -> Result<TrustedDevice, String> {
         offload_core::now(),
     )
     .ok_or_else(|| "The other computer sent an invalid identity.".to_owned())?;
-    let saved = ipc::call(json!({ "op": "device_add", "device": device })).await;
-    if saved.get("ok").and_then(|v| v.as_bool()) != Some(true) {
-        let e = saved
-            .get("error")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown error");
-        return Err(format!("Linked, but could not save the link on this computer: {e}"));
-    }
+    let pinned = device.clone();
+    store::update(|s| s.upsert(pinned).map_err(|e| e.to_string()))
+        .map_err(|e| format!("Linked, but could not save the link on this computer: {e}"))?;
     log::info!("offload: linked with {peer_id}");
     Ok(device)
 }

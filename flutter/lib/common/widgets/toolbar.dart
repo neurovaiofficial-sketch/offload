@@ -557,7 +557,8 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
         }));
   }
   // switchSides
-  if (isDefaultConn &&
+  if (!kOffload &&
+      isDefaultConn &&
       isDesktop &&
       ffiModel.keyboard &&
       pi.platform != kPeerPlatformAndroid &&

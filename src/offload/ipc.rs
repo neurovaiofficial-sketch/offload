@@ -4,11 +4,18 @@
 //! the UI asks it over the existing local IPC channel (which RustDesk already restricts to the
 //! app's own processes). When no service is reachable, store operations run in-process, but
 //! a code can only be shown by a process that can accept the connection it invites.
+//!
+//! No request adds a device directly: devices enter the store only at the end of a pairing
+//! exchange the service itself ran, so whatever can talk to this channel still cannot plant a
+//! key without the other computer's owner approving it.
 
-use super::{server, store, MSG_UNATTENDED_LOCAL_ONLY};
+use super::{pair, server, store, MSG_UNATTENDED_LOCAL_ONLY};
 use crate::ipc::{self as rd_ipc, Data};
 use hbb_common::{config::Config, log};
 use offload_core::{TrustStore, TrustedDevice};
+
+pub const MSG_UNATTENDED_NEEDS_ADMIN: &str =
+    "Turning on unattended access needs an administrator's approval on this computer.";
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -20,7 +27,9 @@ enum Request {
     PairStatus,
     PairCancel,
     PairDecide { id: String, approve: bool },
-    DeviceAdd { device: TrustedDevice },
+    LinkStart { code: String },
+    LinkStatus,
+    LinkCancel,
     DeviceRemove { id: String },
     DeviceRename { id: String, name: String },
     DevicesClear,
@@ -41,7 +50,12 @@ fn err(msg: impl ToString) -> Value {
 }
 
 fn devices_json(s: &TrustStore) -> Value {
-    json!({ "unattended": s.unattended, "devices": s.devices, "my_id": Config::get_id() })
+    json!({
+        "unattended": s.unattended,
+        "devices": s.devices,
+        "my_id": Config::get_id(),
+        "my_fingerprint": offload_core::crypto::fingerprint(&super::my_key_pair().1),
+    })
 }
 
 fn has_remote_sessions() -> bool {
@@ -62,8 +76,9 @@ fn disconnect(id: Option<&str>) -> usize {
 }
 
 /// Serves one request in the process that owns the trust store. `local` is set when the UI
-/// runs it in-process because no service answered.
-async fn serve(req: Request, local: bool) -> Value {
+/// runs it in-process because no service answered; `privileged` when the caller runs with
+/// administrator rights.
+async fn serve(req: Request, local: bool, privileged: bool) -> Value {
     match req {
         Request::Devices => ok(devices_json(&store::snapshot())),
         Request::PairStart if local => err(
@@ -85,14 +100,14 @@ async fn serve(req: Request, local: bool) -> Value {
                 err("That request is no longer waiting for an answer.")
             }
         }
-        Request::DeviceAdd { device } => {
-            if device.public_key().is_none() || !offload_core::is_valid_device_id(&device.id) {
-                return err("invalid device");
-            }
-            match store::update(|s| s.upsert(device).map_err(|e| e.to_string())) {
-                Ok(()) => ok(json!({})),
-                Err(e) => err(e),
-            }
+        Request::LinkStart { code } => {
+            pair::start_link(code);
+            ok(json!({ "status": pair::link_status() }))
+        }
+        Request::LinkStatus => ok(json!({ "status": pair::link_status() })),
+        Request::LinkCancel => {
+            pair::cancel_link();
+            ok(json!({ "status": pair::link_status() }))
         }
         Request::DeviceRemove { id } => {
             let removed = store::update(|s| Ok(s.remove(&id)));
@@ -126,6 +141,11 @@ async fn serve(req: Request, local: bool) -> Value {
             if on && has_remote_sessions() {
                 return err(MSG_UNATTENDED_LOCAL_ONLY);
             }
+            // On Windows the service runs as LocalSystem: granting standing access to it must
+            // take the same consent as any other administrative change (a UAC prompt).
+            if on && cfg!(windows) && !privileged {
+                return err(MSG_UNATTENDED_NEEDS_ADMIN);
+            }
             match store::update(|s| {
                 s.unattended = on;
                 Ok(())
@@ -139,9 +159,9 @@ async fn serve(req: Request, local: bool) -> Value {
 }
 
 /// The IPC server side.
-pub async fn handle(req: &str) -> String {
+pub async fn handle(req: &str, privileged: bool) -> String {
     let resp = match serde_json::from_str::<Request>(req) {
-        Ok(r) => serve(r, false).await,
+        Ok(r) => serve(r, false, privileged).await,
         Err(e) => err(format!("bad request: {e}")),
     };
     resp.to_string()
@@ -151,7 +171,7 @@ fn timeout_ms(req: &Value) -> u64 {
     match req.get("op").and_then(Value::as_str) {
         // Waits for the pairing directory over the internet.
         Some("pair_start") => 20_000,
-        Some("devices") | Some("pair_status") => 3_000,
+        Some("devices") | Some("pair_status") | Some("link_status") => 3_000,
         // Changes are flushed to disk before the service answers.
         _ => 10_000,
     }
@@ -173,7 +193,7 @@ pub async fn call(req: Value) -> Value {
             }
         }
         Err(_) => match serde_json::from_value::<Request>(req) {
-            Ok(r) => serve(r, true).await,
+            Ok(r) => serve(r, true, false).await,
             Err(e) => err(format!("bad request: {e}")),
         },
     }

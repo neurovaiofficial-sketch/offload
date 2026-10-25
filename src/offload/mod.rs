@@ -68,6 +68,16 @@ pub fn apply_defaults() {
         .or_insert_with(|| "Y".to_owned());
 }
 
+/// The per-connection challenge the controlled side sends. Offload logins sign it, so it gets
+/// 160 bits from the OS CSPRNG instead of RustDesk's six password characters.
+pub fn login_challenge() -> String {
+    if ENFORCED {
+        offload_core::code::random_symbols(32)
+    } else {
+        Config::get_auto_password(6)
+    }
+}
+
 pub fn my_name() -> String {
     let name = crate::common::hostname();
     if name.trim().is_empty() {

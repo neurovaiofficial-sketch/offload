@@ -14,8 +14,11 @@ pub const APPROVAL_TIMEOUT_SECS: i64 = 2 * 60;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Requester {
     pub id: String,
+    /// Chosen by the requester and only sanitised: the owner should check `id` and
+    /// `fingerprint` against what the other computer shows.
     pub name: String,
     pub platform: String,
+    pub fingerprint: String,
     #[serde(skip)]
     pub pk: Vec<u8>,
 }
@@ -26,6 +29,7 @@ impl Requester {
             id: id.to_owned(),
             name: sanitize_name(name, id),
             platform: sanitize_name(platform, ""),
+            fingerprint: crate::crypto::fingerprint(&pk),
             pk,
         }
     }
