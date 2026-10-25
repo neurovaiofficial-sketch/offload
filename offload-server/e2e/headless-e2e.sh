@@ -90,32 +90,32 @@ R=$(oc offb link "{\"code\":\"$CODE\"}")
 check "a used code cannot be used again" "$([[ $(field "$R" status.state) == failed ]] && echo 1 || echo 0)" "$R"
 
 echo "== attended: a linked device still needs someone to accept"
-P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"files\",\"wait\":15}")
+P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":15}")
 check "without unattended access nobody accepted, so no session" "$([[ $(field "$P" ok) != True ]] && echo 1 || echo 0)" "$P"
 
 echo "== TEST 12: unattended access"
 U=$(oc offa unattended_set '{"on":true}')
 check "A turns unattended access on" "$([[ $(field "$U" ok) == True ]] && echo 1 || echo 0)" "$U"
-P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"files\",\"wait\":30}")
-check "B opens a file session on A without approval" "$([[ $(field "$P" ok) == True && $(field "$P" secured) == True ]] && echo 1 || echo 0)" "$P"
-echo "     transport=$(field "$P" transport) direct=$(field "$P" direct) listing=$(field "$P" output | cut -c1-80)"
+P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":30}")
+check "B logs in to A (file session) without approval" "$([[ $(field "$P" ok) == True && $(field "$P" secured) == True ]] && echo 1 || echo 0)" "$P"
+echo "     transport=$(field "$P" transport) direct=$(field "$P" direct) peer=$(field "$P" peer)"
 
 echo "== TEST 14 (Linux stand-in): run a computation on A from B"
 P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"run\",\"command\":\"echo result=\$((6*7)) on \$(hostname)\",\"wait\":30}")
 check "command runs on A and its output comes back" "$(field "$P" output | grep -q "result=42" && echo 1 || echo 0)" "$(field "$P" error)"
 
 echo "== TEST 11: forced relay"
-P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"files\",\"wait\":30,\"relay\":true}")
+P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":30,\"relay\":true}")
 check "session works through the relay" "$([[ $(field "$P" ok) == True && $(field "$P" direct) == False ]] && echo 1 || echo 0)" "$P"
 echo "     transport=$(field "$P" transport)"
 
 echo "== TEST 9: reconnect without pairing again"
-P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"files\",\"wait\":30}")
+P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":30}")
 check "second session needs no code" "$([[ $(field "$P" ok) == True ]] && echo 1 || echo 0)" "$P"
 
 echo "== reverse direction (TEST 7 stand-in): A connects to B"
 oc offb unattended_set '{"on":true}' >/dev/null
-P=$(oc offa probe "{\"id\":\"$B_ID\",\"mode\":\"files\",\"wait\":30}")
+P=$(oc offa probe "{\"id\":\"$B_ID\",\"mode\":\"login\",\"wait\":30}")
 check "A opens a session on B" "$([[ $(field "$P" ok) == True ]] && echo 1 || echo 0)" "$P"
 
 echo "== wrong codes"
@@ -132,7 +132,7 @@ oc offa pair_cancel >/dev/null
 echo "== TEST 13: revoke"
 X=$(oc offa device_remove "{\"id\":\"$B_ID\"}")
 check "A removes B" "$([[ $(field "$X" ok) == True ]] && echo 1 || echo 0)" "$X"
-P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"files\",\"wait\":20}")
+P=$(oc offb probe "{\"id\":\"$A_ID\",\"mode\":\"login\",\"wait\":20}")
 check "B is refused after revocation" "$([[ $(field "$P" ok) != True ]] && field "$P" error | grep -qi "not linked" && echo 1 || echo 0)" "$P"
 
 echo "== remove all also turns unattended off"

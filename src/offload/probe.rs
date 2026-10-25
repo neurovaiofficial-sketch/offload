@@ -43,8 +43,9 @@ fn strip_ansi(s: &str) -> String {
     out
 }
 
-/// `mode` is "files" (log in and list the home folder) or "run" (log in, open a terminal and
-/// run `command`); `relay` forces the relayed path. Returns what happened as JSON.
+/// `mode` is "login" (log in only), "files" (log in and list the home folder; the other
+/// computer lists it through its session window, so someone must be signed in there) or "run"
+/// (log in, open a terminal and run `command`); `relay` forces the relayed path.
 pub async fn probe(peer_id: &str, mode: &str, command: &str, wait_secs: u64, relay: bool) -> Value {
     match probe_(peer_id, mode, command, wait_secs, relay).await {
         Ok(v) => v,
@@ -60,7 +61,7 @@ async fn probe_(
     relay: bool,
 ) -> Result<Value, String> {
     let conn_type = match mode {
-        "files" => ConnType::FILE_TRANSFER,
+        "login" | "files" => ConnType::FILE_TRANSFER,
         "run" => ConnType::TERMINAL,
         _ => return Err(format!("unknown mode {mode}")),
     };
@@ -113,6 +114,9 @@ async fn probe_(
                         "username": pi.username,
                         "version": pi.version,
                     });
+                    if mode == "login" {
+                        break;
+                    }
                     if mode == "run" {
                         let mut action = TerminalAction::new();
                         action.set_open(OpenTerminal {
